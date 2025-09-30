@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: controle-financeiro
+    env: python
+    plan: free
+    buildCommand: chmod +x build.sh && ./build.sh
+    startCommand: python app.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
