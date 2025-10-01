@@ -23,7 +23,7 @@ transacao_service = None  # Será inicializado depois
 CATEGORIAS_FIXAS = {
     'receita': [
         'Salário', 'Freelance', 'Investimentos', 'Bonificação', 
-        'Vendas', 'Aluguel Recebido', 'Dividendos', 'Outros'
+        'Vendas', 'Aluguel Recebido', 'Dividendos', 'Vale Alimentação', 'Outros'
     ],
     'despesa': [
         'Alimentação', 'Transporte', 'Moradia', 'Lazer', 
