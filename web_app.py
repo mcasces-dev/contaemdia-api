@@ -486,6 +486,196 @@ LOGIN_TEMPLATE = '''
             });
         }, 5000);
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let pizzaReceitasChart = null;
+    let pizzaDespesasChart = null;
+    let barrasMensalChart = null;
+
+    function mostrarGrafico(tipo) {
+        // Atualizar tabs
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        event.target.classList.add('active');
+        
+        // Mostrar conteúdo correspondente
+        document.querySelectorAll('.grafico-conteudo').forEach(content => {
+            content.classList.remove('active');
+        });
+        document.getElementById('grafico-' + tipo).classList.add('active');
+        
+        // Carregar gráficos quando forem mostrados
+        if (tipo === 'categorias' && !pizzaReceitasChart) {
+            carregarGraficosPizza();
+        } else if (tipo === 'mensal' && !barrasMensalChart) {
+            carregarGraficoBarras();
+        }
+    }
+
+    function carregarGraficosPizza() {
+        fetch('/api/graficos/pizza')
+            .then(response => response.json())
+            .then(dados => {
+                // Gráfico de Pizza - Receitas
+                if (dados.receitas.labels.length > 0) {
+                    const ctxReceitas = document.getElementById('pizzaReceitas').getContext('2d');
+                    pizzaReceitasChart = new Chart(ctxReceitas, {
+                        type: 'pie',
+                        data: {
+                            labels: dados.receitas.labels,
+                            datasets: [{
+                                data: dados.receitas.valores,
+                                backgroundColor: dados.receitas.cores,
+                                borderWidth: 2,
+                                borderColor: '#fff'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        padding: 20,
+                                        usePointStyle: true
+                                    }
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const label = context.label || '';
+                                            const value = context.raw || 0;
+                                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                            const percentage = Math.round((value / total) * 100);
+                                            return `${label}: R$ ${value.toFixed(2)} (${percentage}%)`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    document.getElementById('pizzaReceitas').innerHTML = '<div class="categoria-vazia">Nenhuma receita para exibir</div>';
+                }
+
+                // Gráfico de Pizza - Despesas
+                if (dados.despesas.labels.length > 0) {
+                    const ctxDespesas = document.getElementById('pizzaDespesas').getContext('2d');
+                    pizzaDespesasChart = new Chart(ctxDespesas, {
+                        type: 'pie',
+                        data: {
+                            labels: dados.despesas.labels,
+                            datasets: [{
+                                data: dados.despesas.valores,
+                                backgroundColor: dados.despesas.cores,
+                                borderWidth: 2,
+                                borderColor: '#fff'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        padding: 20,
+                                        usePointStyle: true
+                                    }
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const label = context.label || '';
+                                            const value = context.raw || 0;
+                                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                            const percentage = Math.round((value / total) * 100);
+                                            return `${label}: R$ ${value.toFixed(2)} (${percentage}%)`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    document.getElementById('pizzaDespesas').innerHTML = '<div class="categoria-vazia">Nenhuma despesa para exibir</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar gráficos:', error);
+            });
+    }
+
+    function carregarGraficoBarras() {
+        fetch('/api/graficos/barras')
+            .then(response => response.json())
+            .then(dados => {
+                if (dados.labels.length > 0) {
+                    const ctx = document.getElementById('barrasMensal').getContext('2d');
+                    barrasMensalChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: dados.labels,
+                            datasets: [
+                                {
+                                    label: 'Receitas',
+                                    data: dados.receitas,
+                                    backgroundColor: '#2ecc71',
+                                    borderColor: '#27ae60',
+                                    borderWidth: 1
+                                },
+                                {
+                                    label: 'Despesas',
+                                    data: dados.despesas,
+                                    backgroundColor: '#e74c3c',
+                                    borderColor: '#c0392b',
+                                    borderWidth: 1
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return 'R$ ' + value.toFixed(2);
+                                        }
+                                    }
+                                }
+                            },
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return context.dataset.label + ': R$ ' + context.raw.toFixed(2);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    document.getElementById('barrasMensal').innerHTML = '<div class="categoria-vazia">Dados insuficientes para gráfico mensal</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar gráfico de barras:', error);
+            });
+    }
+
+    // Carregar gráficos quando a página carregar
+    document.addEventListener('DOMContentLoaded', function() {
+        // Carregar gráfico de pizza por padrão
+        setTimeout(() => {
+            if (document.getElementById('grafico-categorias').classList.contains('active')) {
+                carregarGraficosPizza();
+            }
+        }, 1000);
+    });
+</script>
+
 </body>
 </html>
 '''
