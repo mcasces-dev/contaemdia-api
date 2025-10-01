@@ -1145,6 +1145,7 @@ def delete_transacao(transacao_id):
 @app.route('/logout', methods=['POST'])
 def logout():
     session.clear()
+    flash('Você saiu da sua conta com sucesso!', 'info')
     return redirect('/')
 
 if __name__ == '__main__':
