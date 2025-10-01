@@ -10,3 +10,7 @@ services:
         value: 3.11.0
       - key: SECRET_KEY
         value: "sua_chave_secreta_super_segura_aqui_12345"
+      - key: GOOGLE_CLIENT_ID
+        value: "seu_google_client_id_aqui"
+      - key: GOOGLE_CLIENT_SECRET
+        value: "seu_google_client_secret_aqui"
