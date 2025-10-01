@@ -937,9 +937,40 @@ DASHBOARD_TEMPLATE = '''
         </div>
         
         <!-- Tab Relatórios -->
-        <div id="relatorios" class="tab-content">
-            <h3 style="margin: 20px 0; color: #2c3e50;">📊 Relatório por Categorias</h3>
-            
+<div id="relatorios" class="tab-content">
+    <h3 style="margin: 20px 0; color: #2c3e50;">📊 Relatórios e Gráficos</h3>
+    
+    <!-- Abas de gráficos -->
+    <div class="nav-tabs" style="margin: 20px 0;">
+        <button class="nav-tab active" onclick="mostrarGrafico('categorias')">Por Categorias</button>
+        <button class="nav-tab" onclick="mostrarGrafico('mensal')">Evolução Mensal</button>
+        <button class="nav-tab" onclick="mostrarGrafico('detalhes')">Detalhado</button>
+    </div>
+    
+    <!-- Container dos gráficos -->
+    <div id="grafico-container" style="background: white; border-radius: 10px; padding: 20px; margin: 20px 0;">
+        <!-- Gráfico de Pizza por Categorias -->
+        <div id="grafico-categorias" class="grafico-conteudo active">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <h4 style="color: #27ae60; margin-bottom: 15px; text-align: center;">💰 Receitas por Categoria</h4>
+                    <canvas id="pizzaReceitas" width="400" height="300"></canvas>
+                </div>
+                <div>
+                    <h4 style="color: #e74c3c; margin-bottom: 15px; text-align: center;">💸 Despesas por Categoria</h4>
+                    <canvas id="pizzaDespesas" width="400" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Gráfico de Barras Mensal -->
+        <div id="grafico-mensal" class="grafico-conteudo">
+            <h4 style="text-align: center; margin-bottom: 20px; color: #2c3e50;">📈 Evolução Mensal</h4>
+            <canvas id="barrasMensal" width="800" height="400"></canvas>
+        </div>
+        
+        <!-- Relatório Detalhado -->
+        <div id="grafico-detalhes" class="grafico-conteudo">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <!-- Receitas -->
                 <div>
@@ -985,6 +1016,7 @@ DASHBOARD_TEMPLATE = '''
             </div>
         </div>
     </div>
+</div>
 
     <script>
         function showTab(tabName) {
