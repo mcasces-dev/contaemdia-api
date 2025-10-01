@@ -503,6 +503,9 @@ DASHBOARD_TEMPLATE = '''
             border-radius: 5px;
             cursor: pointer;
             margin-top: 10px;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
         }
         
         .logout-btn:hover {
