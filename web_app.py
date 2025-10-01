@@ -787,9 +787,7 @@ DASHBOARD_TEMPLATE = '''
                 {% endif %}
                 <div class="user-name">{{ usuario_nome }}</div>
                 <div class="user-email">{{ usuario_email }}</div>
-                <form method="POST" action="/logout" style="display: inline;">
-                    <button type="submit" class="logout-btn">Sair</button>
-                </form>
+                <a href="/logout" class="logout-btn" onclick="return confirm('Tem certeza que deseja sair?')">Sair</a>
             </div>
         </div>
         
