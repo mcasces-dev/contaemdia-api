@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: controle-financeiro
+    name: contaemdia-api
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt && mkdir -p data
@@ -8,3 +8,5 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: SECRET_KEY
+        value: "sua_chave_secreta_super_segura_aqui_12345"
