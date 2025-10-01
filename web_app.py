@@ -1198,5 +1198,19 @@ def logout():
     flash('Você saiu da sua conta com sucesso!', 'info')
     return redirect('/')
 
+@app.route('/api/graficos/<tipo>')
+@login_required
+def api_graficos(tipo):
+    user_id = session['user_id']
+    
+    if tipo == 'pizza':
+        dados = transacao_service.obter_dados_grafico_pizza(user_id)
+    elif tipo == 'barras':
+        dados = transacao_service.obter_dados_grafico_barras(user_id)
+    else:
+        return jsonify({'error': 'Tipo de gráfico inválido'}), 400
+    
+    return jsonify(dados)
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
