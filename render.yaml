@@ -3,8 +3,8 @@ services:
     name: controle-financeiro
     env: python
     plan: free
-    buildCommand: chmod +x build.sh && ./build.sh
-    startCommand: python app.py
+    buildCommand: pip install -r requirements.txt && mkdir -p data
+    startCommand: python web_app.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
