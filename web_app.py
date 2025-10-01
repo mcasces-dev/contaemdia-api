@@ -1143,7 +1143,7 @@ def delete_transacao(transacao_id):
     transacao_service.excluir_transacao(user_id, transacao_id)
     return redirect('/dashboard')
 
-@app.route('/logout', methods=['POST'])
+@app.route('/logout', methods=['GET', 'POST'])
 def logout():
     session.clear()
     flash('Você saiu da sua conta com sucesso!', 'info')
