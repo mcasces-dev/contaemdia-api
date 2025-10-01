@@ -1,18 +1,260 @@
-from flask import Flask, render_template_string, request, redirect, jsonify
+from flask import Flask, render_template_string, request, redirect, jsonify, session, flash
 import json
 import os
 from datetime import datetime
+from auth import AuthService
 
 app = Flask(__name__)
+app.secret_key = 'sua_chave_secreta_muito_segura_aqui'  # Em produção, use variável de ambiente
 
-# HTML template moderno
-HTML_TEMPLATE = '''
+# Serviços
+auth_service = AuthService()
+
+# HTML template - Página de Login/Cadastro
+LOGIN_TEMPLATE = '''
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Controle Financeiro</title>
+    <title>Conta em Dia - Login</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            overflow: hidden;
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .tab-container {
+            display: flex;
+            background: #f8f9fa;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            background: none;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .tab.active {
+            background: white;
+            color: #3498db;
+            border-bottom: 3px solid #3498db;
+        }
+        
+        .form-container {
+            padding: 30px;
+        }
+        
+        .form {
+            display: none;
+        }
+        
+        .form.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .alert-error {
+            background: #ffeaa7;
+            color: #d63031;
+            border: 1px solid #fab1a0;
+        }
+        
+        .alert-success {
+            background: #55efc4;
+            color: #00b894;
+            border: 1px solid #00b894;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 Conta em Dia</h1>
+            <p>Controle suas finanças com facilidade</p>
+        </div>
+        
+        <div class="tab-container">
+            <button class="tab active" onclick="showTab('login')">Entrar</button>
+            <button class="tab" onclick="showTab('cadastro')">Cadastrar</button>
+        </div>
+        
+        <div class="form-container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <form method="POST" action="/login" class="form active" id="loginForm">
+                <div class="form-group">
+                    <label for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" name="email" placeholder="seu@email.com" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="loginSenha">Senha</label>
+                    <input type="password" id="loginSenha" name="senha" placeholder="Sua senha" required>
+                </div>
+                
+                <button type="submit">Entrar</button>
+            </form>
+            
+            <form method="POST" action="/cadastrar" class="form" id="cadastroForm">
+                <div class="form-group">
+                    <label for="cadastroNome">Nome Completo</label>
+                    <input type="text" id="cadastroNome" name="nome" placeholder="Seu nome completo" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="cadastroEmail">Email</label>
+                    <input type="email" id="cadastroEmail" name="email" placeholder="seu@email.com" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="cadastroSenha">Senha</label>
+                    <input type="password" id="cadastroSenha" name="senha" placeholder="Mínimo 6 caracteres" minlength="6" required>
+                </div>
+                
+                <button type="submit">Criar Conta</button>
+            </form>
+            
+            <div class="footer">
+                <p>💡 Suas finanças organizadas em um só lugar</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            // Atualizar tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Mostrar form correspondente
+            document.getElementById('loginForm').classList.remove('active');
+            document.getElementById('cadastroForm').classList.remove('active');
+            document.getElementById(tabName + 'Form').classList.add('active');
+        }
+        
+        // Limpar mensagens de erro após 5 segundos
+        setTimeout(() => {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                alert.style.display = 'none';
+            });
+        }, 5000);
+    </script>
+</body>
+</html>
+'''
+
+# HTML template - Dashboard (mantém o template anterior, mas atualizado)
+DASHBOARD_TEMPLATE = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Conta em Dia - Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        /* Mantém todo o CSS anterior do dashboard */
         * {
             margin: 0;
             padding: 0;
@@ -28,7 +270,7 @@ HTML_TEMPLATE = '''
         }
         
         .container {
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto;
             background: white;
             border-radius: 15px;
@@ -40,14 +282,40 @@ HTML_TEMPLATE = '''
             background: linear-gradient(135deg, #2c3e50, #34495e);
             color: white;
             padding: 30px;
-            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
+        .user-info {
+            text-align: right;
         }
         
+        .user-name {
+            font-size: 1.2em;
+            margin-bottom: 5px;
+        }
+        
+        .user-email {
+            font-size: 0.9em;
+            color: #bdc3c7;
+        }
+        
+        .logout-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .logout-btn:hover {
+            background: #c0392b;
+        }
+        
+        /* Restante do CSS mantido igual... */
         .cards {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -219,14 +487,33 @@ HTML_TEMPLATE = '''
             .transaction-valor {
                 margin-top: 10px;
             }
+            
+            .header {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .user-info {
+                text-align: center;
+                margin-top: 15px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>💰 Controle Financeiro</h1>
-            <p>Gerencie suas finanças de forma simples e eficiente</p>
+            <div>
+                <h1>💰 Conta em Dia</h1>
+                <p>Bem-vindo de volta, {{ usuario_nome }}!</p>
+            </div>
+            <div class="user-info">
+                <div class="user-name">{{ usuario_nome }}</div>
+                <div class="user-email">{{ usuario_email }}</div>
+                <form method="POST" action="/logout" style="display: inline;">
+                    <button type="submit" class="logout-btn">Sair</button>
+                </form>
+            </div>
         </div>
         
         <div class="cards">
@@ -310,49 +597,35 @@ HTML_TEMPLATE = '''
             {% endif %}
         </div>
     </div>
-
-    <script>
-        // Efeitos visuais simples
-        document.addEventListener('DOMContentLoaded', function() {
-            const inputs = document.querySelectorAll('input, select');
-            inputs.forEach(input => {
-                input.addEventListener('focus', function() {
-                    this.style.transform = 'scale(1.02)';
-                });
-                input.addEventListener('blur', function() {
-                    this.style.transform = 'scale(1)';
-                });
-            });
-        });
-    </script>
 </body>
 </html>
 '''
 
 class TransacaoService:
-    def __init__(self, arquivo_dados='data/financas.json'):
-        self.arquivo_dados = arquivo_dados
+    def __init__(self):
         self._criar_estrutura_dados()
     
     def _criar_estrutura_dados(self):
-        os.makedirs(os.path.dirname(self.arquivo_dados), exist_ok=True)
-        if not os.path.exists(self.arquivo_dados):
-            with open(self.arquivo_dados, 'w') as f:
-                json.dump({'transacoes': [], 'proximo_id': 1}, f)
+        os.makedirs('data', exist_ok=True)
     
-    def _carregar_dados(self):
+    def _get_arquivo_usuario(self, user_id):
+        return f'data/transacoes_{user_id}.json'
+    
+    def _carregar_transacoes(self, user_id):
+        arquivo = self._get_arquivo_usuario(user_id)
         try:
-            with open(self.arquivo_dados, 'r') as f:
+            with open(arquivo, 'r') as f:
                 return json.load(f)
         except:
             return {'transacoes': [], 'proximo_id': 1}
     
-    def _salvar_dados(self, dados):
-        with open(self.arquivo_dados, 'w') as f:
+    def _salvar_transacoes(self, user_id, dados):
+        arquivo = self._get_arquivo_usuario(user_id)
+        with open(arquivo, 'w') as f:
             json.dump(dados, f, indent=2)
     
-    def adicionar_transacao(self, descricao, valor, tipo, categoria):
-        dados = self._carregar_dados()
+    def adicionar_transacao(self, user_id, descricao, valor, tipo, categoria):
+        dados = self._carregar_transacoes(user_id)
         
         transacao = {
             'id': dados['proximo_id'],
@@ -365,61 +638,116 @@ class TransacaoService:
         
         dados['proximo_id'] += 1
         dados['transacoes'].append(transacao)
-        self._salvar_dados(dados)
+        self._salvar_transacoes(user_id, dados)
         return transacao
     
-    def listar_transacoes(self):
-        dados = self._carregar_dados()
+    def listar_transacoes(self, user_id):
+        dados = self._carregar_transacoes(user_id)
         return dados['transacoes']
     
-    def excluir_transacao(self, id):
-        dados = self._carregar_dados()
-        dados['transacoes'] = [t for t in dados['transacoes'] if t['id'] != int(id)]
-        self._salvar_dados(dados)
+    def excluir_transacao(self, user_id, transacao_id):
+        dados = self._carregar_transacoes(user_id)
+        dados['transacoes'] = [t for t in dados['transacoes'] if t['id'] != int(transacao_id)]
+        self._salvar_transacoes(user_id, dados)
         return True
     
-    def calcular_totais(self):
-        transacoes = self.listar_transacoes()
+    def calcular_totais(self, user_id):
+        transacoes = self.listar_transacoes(user_id)
         totais = type('Obj', (), {})()
         totais.receita = sum(t['valor'] for t in transacoes if t['tipo'] == 'receita')
         totais.despesa = sum(t['valor'] for t in transacoes if t['tipo'] == 'despesa')
         return totais
 
-service = TransacaoService()
+transacao_service = TransacaoService()
+
+# Middleware para verificar autenticação
+def login_required(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect('/')
+        return f(*args, **kwargs)
+    return decorated_function
 
 @app.route('/')
 def index():
-    transacoes = service.listar_transacoes()
-    totais = service.calcular_totais()
+    if 'user_id' in session:
+        return redirect('/dashboard')
+    return render_template_string(LOGIN_TEMPLATE)
+
+@app.route('/login', methods=['POST'])
+def login():
+    email = request.form['email']
+    senha = request.form['senha']
+    
+    sucesso, resultado = auth_service.autenticar_usuario(email, senha)
+    
+    if sucesso:
+        session['user_id'] = resultado['id']
+        session['user_email'] = resultado['email']
+        session['user_nome'] = resultado['nome']
+        return redirect('/dashboard')
+    else:
+        flash(resultado, 'error')
+        return redirect('/')
+
+@app.route('/cadastrar', methods=['POST'])
+def cadastrar():
+    nome = request.form['nome']
+    email = request.form['email']
+    senha = request.form['senha']
+    
+    sucesso, mensagem = auth_service.cadastrar_usuario(email, senha, nome)
+    
+    if sucesso:
+        flash(mensagem, 'success')
+    else:
+        flash(mensagem, 'error')
+    
+    return redirect('/')
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    user_id = session['user_id']
+    transacoes = transacao_service.listar_transacoes(user_id)
+    totais = transacao_service.calcular_totais(user_id)
     saldo = totais.receita - totais.despesa
     
     # Ordenar por data (mais recentes primeiro)
     transacoes_ordenadas = sorted(transacoes, key=lambda x: datetime.strptime(x['data'], "%d/%m/%Y %H:%M"), reverse=True)
     
-    return render_template_string(HTML_TEMPLATE, 
-                                transacoes=transacoes_ordenadas[:10],  # Últimas 10 transações
+    return render_template_string(DASHBOARD_TEMPLATE, 
+                                transacoes=transacoes_ordenadas[:10],
                                 totais=totais,
-                                saldo=saldo)
+                                saldo=saldo,
+                                usuario_nome=session['user_nome'],
+                                usuario_email=session['user_email'])
 
 @app.route('/add', methods=['POST'])
+@login_required
 def add_transacao():
+    user_id = session['user_id']
     descricao = request.form['descricao']
     valor = request.form['valor']
     tipo = request.form['tipo']
     categoria = request.form['categoria']
     
-    service.adicionar_transacao(descricao, valor, tipo, categoria)
-    return redirect('/')
+    transacao_service.adicionar_transacao(user_id, descricao, valor, tipo, categoria)
+    return redirect('/dashboard')
 
-@app.route('/delete/<id>', methods=['POST'])
-def delete_transacao(id):
-    service.excluir_transacao(id)
-    return redirect('/')
+@app.route('/delete/<transacao_id>', methods=['POST'])
+@login_required
+def delete_transacao(transacao_id):
+    user_id = session['user_id']
+    transacao_service.excluir_transacao(user_id, transacao_id)
+    return redirect('/dashboard')
 
-@app.route('/api/transacoes', methods=['GET'])
-def api_transacoes():
-    transacoes = service.listar_transacoes()
-    return jsonify(transacoes)
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return redirect('/')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
