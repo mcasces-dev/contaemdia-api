@@ -121,6 +121,55 @@ class TransacaoService:
         
         return relatorio
 
+        def obter_dados_grafico_pizza(self, user_id):
+        """Obtém dados para gráfico de pizza por categoria"""
+        relatorio = self.gerar_relatorio_categorias(user_id)
+        
+        dados_receitas = {
+            'labels': list(relatorio['receita'].keys()),
+            'valores': list(relatorio['receita'].values()),
+            'cores': ['#2ecc71', '#27ae60', '#1abc9c', '#16a085', '#3498db', '#2980b9', '#8e44ad', '#9b59b6']
+        }
+        
+        dados_despesas = {
+            'labels': list(relatorio['despesa'].keys()),
+            'valores': list(relatorio['despesa'].values()),
+            'cores': ['#e74c3c', '#c0392b', '#d35400', '#e67e22', '#f39c12', '#f1c40f', '#34495e', '#2c3e50']
+        }
+        
+        return {
+            'receitas': dados_receitas,
+            'despesas': dados_despesas
+        }
+    
+    def obter_dados_grafico_barras(self, user_id):
+        """Obtém dados para gráfico de barras mensal"""
+        transacoes = self.listar_transacoes(user_id)
+        
+        # Agrupar por mês
+        meses = {}
+        for transacao in transacoes:
+            data = datetime.strptime(transacao['data'], "%d/%m/%Y %H:%M")
+            mes_ano = data.strftime("%m/%Y")
+            
+            if mes_ano not in meses:
+                meses[mes_ano] = {'receita': 0, 'despesa': 0}
+            
+            meses[mes_ano][transacao['tipo']] += transacao['valor']
+        
+        # Ordenar por data
+        meses_ordenados = sorted(meses.items(), key=lambda x: datetime.strptime(x[0], "%m/%Y"))
+        
+        labels = [f"{datetime.strptime(mes, '%m/%Y').strftime('%b/%Y')}" for mes, _ in meses_ordenados[-6:]]  # Últimos 6 meses
+        receitas = [dados['receita'] for _, dados in meses_ordenados[-6:]]
+        despesas = [dados['despesa'] for _, dados in meses_ordenados[-6:]]
+        
+        return {
+            'labels': labels,
+            'receitas': receitas,
+            'despesas': despesas
+        }
+
 # Inicializar após definir a classe
 transacao_service = TransacaoService()
 
