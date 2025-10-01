@@ -28,7 +28,7 @@ CATEGORIAS_FIXAS = {
     'despesa': [
         'Alimentação', 'Transporte', 'Moradia', 'Lazer', 
         'Saúde', 'Educação', 'Compras', 'Serviços',
-        'Impostos', 'Seguros', 'Viagens', 'Outros'
+        'Impostos', 'Seguros', 'Viagens', 'Emprestimo', 'Caixinha', 'Outros'
     ]
 }
 
