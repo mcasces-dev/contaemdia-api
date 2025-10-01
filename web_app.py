@@ -1,34 +1,30 @@
 from flask import Flask, render_template_string, request, redirect, jsonify, session, flash, url_for
 import json
 import os
-import requests
 from datetime import datetime
 from auth import AuthService
-from google_auth import GoogleAuthService
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'chave_secreta_padrao_mudar_em_producao')
 
-# Configurações Google OAuth
+# Configurações Google OAuth (simplificado)
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
-GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
-GOOGLE_REDIRECT_URI = "https://contaemdia-api.onrender.com/login/google/callback"
+GOOGLE_ENABLED = bool(GOOGLE_CLIENT_ID)
 
 # Serviços
 auth_service = AuthService()
-google_auth_service = GoogleAuthService(auth_service)
-transacao_service = None  # Será inicializado depois
+transacao_service = None
 
 # Categorias fixas
 CATEGORIAS_FIXAS = {
     'receita': [
         'Salário', 'Freelance', 'Investimentos', 'Bonificação', 
-        'Vendas', 'Aluguel Recebido', 'Dividendos', 'Vale Alimentação', 'Outros'
+        'Vendas', 'Aluguel Recebido', 'Dividendos', 'Outros'
     ],
     'despesa': [
         'Alimentação', 'Transporte', 'Moradia', 'Lazer', 
         'Saúde', 'Educação', 'Compras', 'Serviços',
-        'Impostos', 'Seguros', 'Viagens', 'Emprestimo', 'Caixinha', 'Outros'
+        'Impostos', 'Seguros', 'Viagens', 'Outros'
     ]
 }
 
@@ -120,8 +116,8 @@ class TransacaoService:
         relatorio['despesa'] = {k: v for k, v in relatorio['despesa'].items() if v > 0}
         
         return relatorio
-
-        def obter_dados_grafico_pizza(self, user_id):
+    
+    def obter_dados_grafico_pizza(self, user_id):
         """Obtém dados para gráfico de pizza por categoria"""
         relatorio = self.gerar_relatorio_categorias(user_id)
         
@@ -173,7 +169,7 @@ class TransacaoService:
 # Inicializar após definir a classe
 transacao_service = TransacaoService()
 
-# HTML template - Página de Login/Cadastro atualizada
+# HTML template - Página de Login/Cadastro
 LOGIN_TEMPLATE = '''
 <!DOCTYPE html>
 <html>
@@ -402,7 +398,7 @@ LOGIN_TEMPLATE = '''
             {% endwith %}
             
             <!-- Botão Google -->
-            {% if google_client_id %}
+            {% if google_enabled %}
             <div class="google-btn-container">
                 <a href="/login/google" class="btn btn-google">
                     <svg class="google-icon" viewBox="0 0 24 24">
@@ -486,201 +482,11 @@ LOGIN_TEMPLATE = '''
             });
         }, 5000);
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    let pizzaReceitasChart = null;
-    let pizzaDespesasChart = null;
-    let barrasMensalChart = null;
-
-    function mostrarGrafico(tipo) {
-        // Atualizar tabs
-        document.querySelectorAll('.nav-tab').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        event.target.classList.add('active');
-        
-        // Mostrar conteúdo correspondente
-        document.querySelectorAll('.grafico-conteudo').forEach(content => {
-            content.classList.remove('active');
-        });
-        document.getElementById('grafico-' + tipo).classList.add('active');
-        
-        // Carregar gráficos quando forem mostrados
-        if (tipo === 'categorias' && !pizzaReceitasChart) {
-            carregarGraficosPizza();
-        } else if (tipo === 'mensal' && !barrasMensalChart) {
-            carregarGraficoBarras();
-        }
-    }
-
-    function carregarGraficosPizza() {
-        fetch('/api/graficos/pizza')
-            .then(response => response.json())
-            .then(dados => {
-                // Gráfico de Pizza - Receitas
-                if (dados.receitas.labels.length > 0) {
-                    const ctxReceitas = document.getElementById('pizzaReceitas').getContext('2d');
-                    pizzaReceitasChart = new Chart(ctxReceitas, {
-                        type: 'pie',
-                        data: {
-                            labels: dados.receitas.labels,
-                            datasets: [{
-                                data: dados.receitas.valores,
-                                backgroundColor: dados.receitas.cores,
-                                borderWidth: 2,
-                                borderColor: '#fff'
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: {
-                                    position: 'bottom',
-                                    labels: {
-                                        padding: 20,
-                                        usePointStyle: true
-                                    }
-                                },
-                                tooltip: {
-                                    callbacks: {
-                                        label: function(context) {
-                                            const label = context.label || '';
-                                            const value = context.raw || 0;
-                                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                            const percentage = Math.round((value / total) * 100);
-                                            return `${label}: R$ ${value.toFixed(2)} (${percentage}%)`;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-                } else {
-                    document.getElementById('pizzaReceitas').innerHTML = '<div class="categoria-vazia">Nenhuma receita para exibir</div>';
-                }
-
-                // Gráfico de Pizza - Despesas
-                if (dados.despesas.labels.length > 0) {
-                    const ctxDespesas = document.getElementById('pizzaDespesas').getContext('2d');
-                    pizzaDespesasChart = new Chart(ctxDespesas, {
-                        type: 'pie',
-                        data: {
-                            labels: dados.despesas.labels,
-                            datasets: [{
-                                data: dados.despesas.valores,
-                                backgroundColor: dados.despesas.cores,
-                                borderWidth: 2,
-                                borderColor: '#fff'
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: {
-                                    position: 'bottom',
-                                    labels: {
-                                        padding: 20,
-                                        usePointStyle: true
-                                    }
-                                },
-                                tooltip: {
-                                    callbacks: {
-                                        label: function(context) {
-                                            const label = context.label || '';
-                                            const value = context.raw || 0;
-                                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                            const percentage = Math.round((value / total) * 100);
-                                            return `${label}: R$ ${value.toFixed(2)} (${percentage}%)`;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-                } else {
-                    document.getElementById('pizzaDespesas').innerHTML = '<div class="categoria-vazia">Nenhuma despesa para exibir</div>';
-                }
-            })
-            .catch(error => {
-                console.error('Erro ao carregar gráficos:', error);
-            });
-    }
-
-    function carregarGraficoBarras() {
-        fetch('/api/graficos/barras')
-            .then(response => response.json())
-            .then(dados => {
-                if (dados.labels.length > 0) {
-                    const ctx = document.getElementById('barrasMensal').getContext('2d');
-                    barrasMensalChart = new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: dados.labels,
-                            datasets: [
-                                {
-                                    label: 'Receitas',
-                                    data: dados.receitas,
-                                    backgroundColor: '#2ecc71',
-                                    borderColor: '#27ae60',
-                                    borderWidth: 1
-                                },
-                                {
-                                    label: 'Despesas',
-                                    data: dados.despesas,
-                                    backgroundColor: '#e74c3c',
-                                    borderColor: '#c0392b',
-                                    borderWidth: 1
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: {
-                                        callback: function(value) {
-                                            return 'R$ ' + value.toFixed(2);
-                                        }
-                                    }
-                                }
-                            },
-                            plugins: {
-                                tooltip: {
-                                    callbacks: {
-                                        label: function(context) {
-                                            return context.dataset.label + ': R$ ' + context.raw.toFixed(2);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-                } else {
-                    document.getElementById('barrasMensal').innerHTML = '<div class="categoria-vazia">Dados insuficientes para gráfico mensal</div>';
-                }
-            })
-            .catch(error => {
-                console.error('Erro ao carregar gráfico de barras:', error);
-            });
-    }
-
-    // Carregar gráficos quando a página carregar
-    document.addEventListener('DOMContentLoaded', function() {
-        // Carregar gráfico de pizza por padrão
-        setTimeout(() => {
-            if (document.getElementById('grafico-categorias').classList.contains('active')) {
-                carregarGraficosPizza();
-            }
-        }, 1000);
-    });
-</script>
-
 </body>
 </html>
 '''
 
-# HTML template - Dashboard atualizado com categorias fixas
+# HTML template - Dashboard atualizado com gráficos
 DASHBOARD_TEMPLATE = '''
 <!DOCTYPE html>
 <html>
@@ -986,6 +792,28 @@ DASHBOARD_TEMPLATE = '''
             color: #7f8c8d;
         }
         
+        /* Estilos para gráficos */
+        .grafico-conteudo {
+            display: none;
+        }
+        
+        .grafico-conteudo.active {
+            display: block;
+        }
+        
+        canvas {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .grafico-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
         @media (max-width: 600px) {
             .form-grid {
                 grid-template-columns: 1fr;
@@ -1127,88 +955,94 @@ DASHBOARD_TEMPLATE = '''
         </div>
         
         <!-- Tab Relatórios -->
-<div id="relatorios" class="tab-content">
-    <h3 style="margin: 20px 0; color: #2c3e50;">📊 Relatórios e Gráficos</h3>
-    
-    <!-- Abas de gráficos -->
-    <div class="nav-tabs" style="margin: 20px 0;">
-        <button class="nav-tab active" onclick="mostrarGrafico('categorias')">Por Categorias</button>
-        <button class="nav-tab" onclick="mostrarGrafico('mensal')">Evolução Mensal</button>
-        <button class="nav-tab" onclick="mostrarGrafico('detalhes')">Detalhado</button>
-    </div>
-    
-    <!-- Container dos gráficos -->
-    <div id="grafico-container" style="background: white; border-radius: 10px; padding: 20px; margin: 20px 0;">
-        <!-- Gráfico de Pizza por Categorias -->
-        <div id="grafico-categorias" class="grafico-conteudo active">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                <div>
-                    <h4 style="color: #27ae60; margin-bottom: 15px; text-align: center;">💰 Receitas por Categoria</h4>
-                    <canvas id="pizzaReceitas" width="400" height="300"></canvas>
-                </div>
-                <div>
-                    <h4 style="color: #e74c3c; margin-bottom: 15px; text-align: center;">💸 Despesas por Categoria</h4>
-                    <canvas id="pizzaDespesas" width="400" height="300"></canvas>
-                </div>
+        <div id="relatorios" class="tab-content">
+            <h3 style="margin: 20px 0; color: #2c3e50;">📊 Relatórios e Gráficos</h3>
+            
+            <!-- Abas de gráficos -->
+            <div class="nav-tabs" style="margin: 20px 0;">
+                <button class="nav-tab active" onclick="mostrarGrafico('categorias')">Por Categorias</button>
+                <button class="nav-tab" onclick="mostrarGrafico('mensal')">Evolução Mensal</button>
+                <button class="nav-tab" onclick="mostrarGrafico('detalhes')">Detalhado</button>
             </div>
-        </div>
-        
-        <!-- Gráfico de Barras Mensal -->
-        <div id="grafico-mensal" class="grafico-conteudo">
-            <h4 style="text-align: center; margin-bottom: 20px; color: #2c3e50;">📈 Evolução Mensal</h4>
-            <canvas id="barrasMensal" width="800" height="400"></canvas>
-        </div>
-        
-        <!-- Relatório Detalhado -->
-        <div id="grafico-detalhes" class="grafico-conteudo">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                <!-- Receitas -->
-                <div>
-                    <h4 style="color: #27ae60; margin-bottom: 15px;">💰 Receitas</h4>
-                    {% if relatorio.receita %}
-                        {% for categoria, valor in relatorio.receita.items() %}
-                        <div class="relatorio-categoria">
-                            <div class="categoria-header">
-                                <span class="categoria-nome">{{ categoria }}</span>
-                                <span class="categoria-valor" style="color: #27ae60;">R$ {{ "%.2f"|format(valor) }}</span>
-                            </div>
-                            <div class="barra-progresso">
-                                <div class="barra-progresso-inner barra-receita" 
-                                     style="width: {{ (valor / totais.receita * 100) if totais.receita > 0 else 0 }}%"></div>
-                            </div>
+            
+            <!-- Container dos gráficos -->
+            <div id="grafico-container" style="background: white; border-radius: 10px; padding: 20px; margin: 20px 0;">
+                <!-- Gráfico de Pizza por Categorias -->
+                <div id="grafico-categorias" class="grafico-conteudo active">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div>
+                            <h4 style="color: #27ae60; margin-bottom: 15px; text-align: center;">💰 Receitas por Categoria</h4>
+                            <canvas id="pizzaReceitas" width="400" height="300"></canvas>
                         </div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="categoria-vazia">Nenhuma receita cadastrada</div>
-                    {% endif %}
+                        <div>
+                            <h4 style="color: #e74c3c; margin-bottom: 15px; text-align: center;">💸 Despesas por Categoria</h4>
+                            <canvas id="pizzaDespesas" width="400" height="300"></canvas>
+                        </div>
+                    </div>
                 </div>
                 
-                <!-- Despesas -->
-                <div>
-                    <h4 style="color: #e74c3c; margin-bottom: 15px;">💸 Despesas</h4>
-                    {% if relatorio.despesa %}
-                        {% for categoria, valor in relatorio.despesa.items() %}
-                        <div class="relatorio-categoria">
-                            <div class="categoria-header">
-                                <span class="categoria-nome">{{ categoria }}</span>
-                                <span class="categoria-valor" style="color: #e74c3c;">R$ {{ "%.2f"|format(valor) }}</span>
-                            </div>
-                            <div class="barra-progresso">
-                                <div class="barra-progresso-inner barra-despesa" 
-                                     style="width: {{ (valor / totais.despesa * 100) if totais.despesa > 0 else 0 }}%"></div>
-                            </div>
+                <!-- Gráfico de Barras Mensal -->
+                <div id="grafico-mensal" class="grafico-conteudo">
+                    <h4 style="text-align: center; margin-bottom: 20px; color: #2c3e50;">📈 Evolução Mensal</h4>
+                    <canvas id="barrasMensal" width="800" height="400"></canvas>
+                </div>
+                
+                <!-- Relatório Detalhado -->
+                <div id="grafico-detalhes" class="grafico-conteudo">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <!-- Receitas -->
+                        <div>
+                            <h4 style="color: #27ae60; margin-bottom: 15px;">💰 Receitas</h4>
+                            {% if relatorio.receita %}
+                                {% for categoria, valor in relatorio.receita.items() %}
+                                <div class="relatorio-categoria">
+                                    <div class="categoria-header">
+                                        <span class="categoria-nome">{{ categoria }}</span>
+                                        <span class="categoria-valor" style="color: #27ae60;">R$ {{ "%.2f"|format(valor) }}</span>
+                                    </div>
+                                    <div class="barra-progresso">
+                                        <div class="barra-progresso-inner barra-receita" 
+                                             style="width: {{ (valor / totais.receita * 100) if totais.receita > 0 else 0 }}%"></div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="categoria-vazia">Nenhuma receita cadastrada</div>
+                            {% endif %}
                         </div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="categoria-vazia">Nenhuma despesa cadastrada</div>
-                    {% endif %}
+                        
+                        <!-- Despesas -->
+                        <div>
+                            <h4 style="color: #e74c3c; margin-bottom: 15px;">💸 Despesas</h4>
+                            {% if relatorio.despesa %}
+                                {% for categoria, valor in relatorio.despesa.items() %}
+                                <div class="relatorio-categoria">
+                                    <div class="categoria-header">
+                                        <span class="categoria-nome">{{ categoria }}</span>
+                                        <span class="categoria-valor" style="color: #e74c3c;">R$ {{ "%.2f"|format(valor) }}</span>
+                                    </div>
+                                    <div class="barra-progresso">
+                                        <div class="barra-progresso-inner barra-despesa" 
+                                             style="width: {{ (valor / totais.despesa * 100) if totais.despesa > 0 else 0 }}%"></div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="categoria-vazia">Nenhuma despesa cadastrada</div>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+        let pizzaReceitasChart = null;
+        let pizzaDespesasChart = null;
+        let barrasMensalChart = null;
+
         function showTab(tabName) {
             // Atualizar tabs
             document.querySelectorAll('.nav-tab').forEach(tab => {
@@ -1222,7 +1056,180 @@ DASHBOARD_TEMPLATE = '''
             });
             document.getElementById(tabName).classList.add('active');
         }
-        
+
+        function mostrarGrafico(tipo) {
+            // Atualizar tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Mostrar conteúdo correspondente
+            document.querySelectorAll('.grafico-conteudo').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById('grafico-' + tipo).classList.add('active');
+            
+            // Carregar gráficos quando forem mostrados
+            if (tipo === 'categorias' && !pizzaReceitasChart) {
+                carregarGraficosPizza();
+            } else if (tipo === 'mensal' && !barrasMensalChart) {
+                carregarGraficoBarras();
+            }
+        }
+
+        function carregarGraficosPizza() {
+            fetch('/api/graficos/pizza')
+                .then(response => response.json())
+                .then(dados => {
+                    // Gráfico de Pizza - Receitas
+                    if (dados.receitas.labels.length > 0) {
+                        const ctxReceitas = document.getElementById('pizzaReceitas').getContext('2d');
+                        pizzaReceitasChart = new Chart(ctxReceitas, {
+                            type: 'pie',
+                            data: {
+                                labels: dados.receitas.labels,
+                                datasets: [{
+                                    data: dados.receitas.valores,
+                                    backgroundColor: dados.receitas.cores,
+                                    borderWidth: 2,
+                                    borderColor: '#fff'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: {
+                                    legend: {
+                                        position: 'bottom',
+                                        labels: {
+                                            padding: 20,
+                                            usePointStyle: true
+                                        }
+                                    },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function(context) {
+                                                const label = context.label || '';
+                                                const value = context.raw || 0;
+                                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                                const percentage = Math.round((value / total) * 100);
+                                                return `${label}: R$ ${value.toFixed(2)} (${percentage}%)`;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    } else {
+                        document.getElementById('pizzaReceitas').innerHTML = '<div class="categoria-vazia">Nenhuma receita para exibir</div>';
+                    }
+
+                    // Gráfico de Pizza - Despesas
+                    if (dados.despesas.labels.length > 0) {
+                        const ctxDespesas = document.getElementById('pizzaDespesas').getContext('2d');
+                        pizzaDespesasChart = new Chart(ctxDespesas, {
+                            type: 'pie',
+                            data: {
+                                labels: dados.despesas.labels,
+                                datasets: [{
+                                    data: dados.despesas.valores,
+                                    backgroundColor: dados.despesas.cores,
+                                    borderWidth: 2,
+                                    borderColor: '#fff'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: {
+                                    legend: {
+                                        position: 'bottom',
+                                        labels: {
+                                            padding: 20,
+                                            usePointStyle: true
+                                        }
+                                    },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function(context) {
+                                                const label = context.label || '';
+                                                const value = context.raw || 0;
+                                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                                const percentage = Math.round((value / total) * 100);
+                                                return `${label}: R$ ${value.toFixed(2)} (${percentage}%)`;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    } else {
+                        document.getElementById('pizzaDespesas').innerHTML = '<div class="categoria-vazia">Nenhuma despesa para exibir</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar gráficos:', error);
+                });
+        }
+
+        function carregarGraficoBarras() {
+            fetch('/api/graficos/barras')
+                .then(response => response.json())
+                .then(dados => {
+                    if (dados.labels.length > 0) {
+                        const ctx = document.getElementById('barrasMensal').getContext('2d');
+                        barrasMensalChart = new Chart(ctx, {
+                            type: 'bar',
+                            data: {
+                                labels: dados.labels,
+                                datasets: [
+                                    {
+                                        label: 'Receitas',
+                                        data: dados.receitas,
+                                        backgroundColor: '#2ecc71',
+                                        borderColor: '#27ae60',
+                                        borderWidth: 1
+                                    },
+                                    {
+                                        label: 'Despesas',
+                                        data: dados.despesas,
+                                        backgroundColor: '#e74c3c',
+                                        borderColor: '#c0392b',
+                                        borderWidth: 1
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        ticks: {
+                                            callback: function(value) {
+                                                return 'R$ ' + value.toFixed(2);
+                                            }
+                                        }
+                                    }
+                                },
+                                plugins: {
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function(context) {
+                                                return context.dataset.label + ': R$ ' + context.raw.toFixed(2);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    } else {
+                        document.getElementById('barrasMensal').innerHTML = '<div class="categoria-vazia">Dados insuficientes para gráfico mensal</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar gráfico de barras:', error);
+                });
+        }
+
         function atualizarCategorias() {
             const tipo = document.getElementById('tipo').value;
             const categoriaSelect = document.getElementById('categoria');
@@ -1243,6 +1250,13 @@ DASHBOARD_TEMPLATE = '''
         // Inicializar categorias quando a página carregar
         document.addEventListener('DOMContentLoaded', function() {
             atualizarCategorias();
+            
+            // Carregar gráfico de pizza por padrão
+            setTimeout(() => {
+                if (document.getElementById('grafico-categorias').classList.contains('active')) {
+                    carregarGraficosPizza();
+                }
+            }, 1000);
         });
     </script>
 </body>
@@ -1263,7 +1277,7 @@ def login_required(f):
 def index():
     if 'user_id' in session:
         return redirect('/dashboard')
-    return render_template_string(LOGIN_TEMPLATE, google_client_id=GOOGLE_CLIENT_ID)
+    return render_template_string(LOGIN_TEMPLATE, google_enabled=GOOGLE_ENABLED)
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -1284,19 +1298,16 @@ def login():
 
 @app.route('/login/google')
 def login_google():
-    if not GOOGLE_CLIENT_ID:
+    if not GOOGLE_ENABLED:
         flash('Login com Google não configurado. Use o login tradicional.', 'info')
         return redirect('/')
     
-    # URL de autorização do Google
+    # URL de autorização do Google (simplificada)
     authorization_url = (
         "https://accounts.google.com/o/oauth2/v2/auth?"
-        "scope=openid%20email%20profile&"
-        f"access_type=offline&"
-        f"include_granted_scopes=true&"
+        "scope=email%20profile&"
         f"response_type=code&"
-        f"state=random_state_string&"
-        f"redirect_uri={GOOGLE_REDIRECT_URI}&"
+        f"redirect_uri=https://contaemdia-api.onrender.com/login/google/callback&"
         f"client_id={GOOGLE_CLIENT_ID}"
     )
     
@@ -1304,59 +1315,8 @@ def login_google():
 
 @app.route('/login/google/callback')
 def google_callback():
-    if 'error' in request.args:
-        flash('Erro na autenticação com Google', 'error')
-        return redirect('/')
-    
-    code = request.args.get('code')
-    
-    if not code:
-        flash('Falha na autenticação com Google', 'error')
-        return redirect('/')
-    
-    try:
-        # Trocar code por token
-        token_url = "https://oauth2.googleapis.com/token"
-        token_data = {
-            'code': code,
-            'client_id': GOOGLE_CLIENT_ID,
-            'client_secret': GOOGLE_CLIENT_SECRET,
-            'redirect_uri': GOOGLE_REDIRECT_URI,
-            'grant_type': 'authorization_code'
-        }
-        
-        token_response = requests.post(token_url, data=token_data)
-        token_json = token_response.json()
-        
-        if 'access_token' not in token_json:
-            flash('Falha ao obter token de acesso', 'error')
-            return redirect('/')
-        
-        # Obter informações do usuário
-        userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
-        userinfo_response = requests.get(
-            userinfo_url,
-            headers={'Authorization': f"Bearer {token_json['access_token']}"}
-        )
-        userinfo = userinfo_response.json()
-        
-        # Autenticar ou criar usuário
-        sucesso, usuario = google_auth_service.autenticar_ou_criar_usuario_google(userinfo)
-        
-        if sucesso:
-            session['user_id'] = usuario['id']
-            session['user_email'] = usuario['email']
-            session['user_nome'] = usuario['nome']
-            session['user_picture'] = usuario.get('picture')
-            flash(f'Bem-vindo, {usuario["nome"]}!', 'success')
-            return redirect('/dashboard')
-        else:
-            flash('Erro ao autenticar com Google', 'error')
-            return redirect('/')
-            
-    except Exception as e:
-        flash(f'Erro na autenticação: {str(e)}', 'error')
-        return redirect('/')
+    flash('Login com Google em desenvolvimento. Use o login tradicional por enquanto.', 'info')
+    return redirect('/')
 
 @app.route('/cadastrar', methods=['POST'])
 def cadastrar():
@@ -1414,12 +1374,6 @@ def delete_transacao(transacao_id):
     transacao_service.excluir_transacao(user_id, transacao_id)
     return redirect('/dashboard')
 
-@app.route('/logout', methods=['GET', 'POST'])
-def logout():
-    session.clear()
-    flash('Você saiu da sua conta com sucesso!', 'info')
-    return redirect('/')
-
 @app.route('/api/graficos/<tipo>')
 @login_required
 def api_graficos(tipo):
@@ -1433,6 +1387,12 @@ def api_graficos(tipo):
         return jsonify({'error': 'Tipo de gráfico inválido'}), 400
     
     return jsonify(dados)
+
+@app.route('/logout', methods=['GET', 'POST'])
+def logout():
+    session.clear()
+    flash('Você saiu da sua conta com sucesso!', 'info')
+    return redirect('/')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
